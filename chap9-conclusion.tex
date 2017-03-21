@@ -1,0 +1,16 @@
+\section{Conclusion}
+\label{sec:conclusion}
+We design and implement \Sys, an append-only log that is as hard to fork as the Bitcoin blockchain but efficient to verify by thin clients such as mobile phones.
+Specifically, in \Sys, an attacker can equivocate if and only if he can double spend Bitcoin transactions, which is notoriously difficult due to Bitcoin's proof-of-work consensus.
+The key idea behind \Sys is to chain \opret transactions together by having a new transaction spend the previous one, making equivocation in the log as hard as double spending in Bitcoin.
+
+\Sys can be used to prevent equivocation in key transparency schemes, paving the way for more trustworthy \pkds.
+\Sys can also be used as a public log for Tor Consensus Transparency\cite{tortransparency}, as a software transparency scheme to prevent malicious software updates or as a consensus log for mutually distrusting participants.
+\Sys's overheads are small.
+Clients only need to download 80-byte block headers and 600-byte statements, a significant improvement over previous blockchain-based transparency schemes\cite{keybase,virtualchain,blockstack} which currently require auditors to download \blockchainsize of blockchain data\cite{bitcoin-size}.
+We develop a prototype of \Sys in Java and apply it to CONIKS, a key transparency scheme, demonstrating \Sys's feasibility.
+Next, we plan on extending our prototype to scale for popular applications.
+
+Our main reason for designing \Sys is to prevent equivocation in compromised online services.
+In that sense, we believe \Sys can bring Bitcoin's non-equivocation guarantees to many important applications today.
+In particular, we hope \Sys can be adopted by secure messaging apps such as Signal\cite{signal} or \pkds such as Keybase\cite{keybase}, giving end users stronger guarantees about non-equivocation.

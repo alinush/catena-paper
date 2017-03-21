@@ -1,0 +1,94 @@
+\subsection{Bitcoin Background}
+\label{sec:background:bitcoin}
+
+Bitcoin\cite{bitcoin,sokbitcoin,princetonbitcoinbook,bitcoinandbeyond} is a peer-to-peer digital currency that allows users to mint digital coins called \emph{bitcoins} and exchange them without a trusted intermediary.
+Bitcoin uses a novel permissionless Byzantine consensus protocol known as \emph{proof-of-work consensus}\cite{blockchainproto} which allows all participants to agree on a log of transactions and prevent attacks such as double spending coins.
+The log of transactions is called a \emph{blockchain} and is stored and managed by a peer-to-peer (P2P) network\cite{bitcoin-p2p}.
+A special set of users called \emph{miners} run Bitcoin's proof-of-work consensus protocol, extending the blockchain with new \emph{blocks} made up of new transactions.
+This process, called \emph{mining}, is computationally difficult and secures Bitcoin by allowing everyone to agree on the correct log of transactions while preventing Sybil attacks\cite{sybil}.
+To incentivize Bitcoin miners to mine, a \emph{block reward} consisting of newly minted bitcoins is given to a miner if he mines or ``finds'' the next block.
+
+\subsubsection{P2P Network}
+\label{sec:background:bitcoin:p2p}
+Bitcoin uses a peer-to-peer (P2P) network of volunteer nodes to store the blockchain\cite{bitcoin-p2p}, listen for new transactions or new blocks, and propagate this information throughout the network.
+Users, such as merchants and their customers, download the blockchain by becoming part of the P2P network and can then receive or issue Bitcoin transactions.
+Miners are also part of the P2P network where they listen for new blocks and broadcast their own blocks.
+
+\subsubsection{Blockchain}
+\label{sec:background:bitcoin:blockchain}
+Bitcoin's ``blockchain'' is implemented as a hash-chain of \emph{blocks} (see \figref{fig:bitcoin}) and keeps track of all transactions in the system, allowing anyone to verify that no double spends have occurred.
+A Bitcoin block is made up of a set of transactions (up to 1 MB) and a small \emph{block header} (80 bytes) that contains a hash pointer to the previous block.
+The transactions in the block are hashed in a Merkle tree\cite{merkle} whose root hash is stored inside the block header.
+The Merkle tree allows Bitcoin \emph{thin clients} (see \secref{sec:background:bitcoin:thin}) to obtain efficient \emph{membership proofs} that a transaction is part of a block.
+
+% or t for top, b for bottom, h for here (https://tex.stackexchange.com/questions/35125/how-to-use-the-placement-options-t-h-with-figures)
+\begin{figure}[t]
+    \centering
+    \includegraphics[trim=.8cm .8cm 1.4cm .8cm, width=1\columnwidth]{figs/bitcoin.pdf}
+    \vspace{-1.5cm}
+    \caption{The Bitcoin blockchain is a hash chain of blocks. Each block has a Merkle tree of transactions. Efficient membership proofs of transactions can be constructed with respect to the Merkle root. Here, $tx_1$ transfers coins from Alice, Bob and Carol to Dan and somebody else (miners receive a fee of 1 coin).
+        Alice authorizes the transfer of her coins by signing $tx_1$, which has an input pointing to her coins locked in the 1st output of $tx_a$.
+        Bob and Carol do the same.
+        Similarly, Dan later spends his coins locked in $tx_1$'s 1st output by signing a new transaction $tx_d$ with an input pointing to $tx_1$'s 1st output.}
+    \label{fig:bitcoin}
+\end{figure}
+
+\subsubsection{Decentralized Consensus}
+\label{sec:background:bitcoin:consensus}
+To solve the consensus problem in the decentralized or \emph{permissionless} setting, where participants can enter and leave the protocol as they please, Bitcoin introduces a novel Byzantine consensus protocol called \emph{proof-of-work consensus}\cite{blockchainproto,bitcoin-backbone,bitcoin-speed-security,miller2014anonymous}.
+Though it does so at a high computational cost, this protocol defeats Sybil attacks\cite{sybil} and achieves consensus on the blockchain if 51\% of the computational power amongst participants remains honest.
+
+Participants called \emph{miners} race to solve computationally-difficult proof-of-work puzzles derived from the previous Bitcoin block.
+If a miner finds a solution, the miner can publish the next block by announcing it along with the solution (in reality, the solution is part of the next block) over the P2P network.
+Furthermore, this miner will receive a \emph{block reward} in bitcoins, an incentive for miners to participate in the consensus protocol.
+The puzzle difficulty is adjusted every 2016 blocks based on the inferred computational power of the miners, or \emph{network hashrate}, so that a new block is found or ``mined'' on average every 10 minutes.
+
+When two miners find a solution at the same time, the Bitcoin blockchain is said to \emph{accidentally fork} into two chains.
+In this case, Bitcoin peers use the \emph{heaviest chain rule} and select the heavier fork as the \emph{main chain} that dictates consensus.
+The \emph{weight} of a fork is simply the amount of computational work expended to create that fork.
+Assuming no difficulty changes, the heaviest fork is the longest fork.
+However, across difficulty changes, it could be that a fork with fewer blocks is heavier than a longer fork (though this never happens in practice).
+
+During an accidental fork, both forks have the same length and weight (assuming the fork does not cross a difficulty recomputation point), so Bitcoin peers adopt the fork they saw first as their main chain.
+As more blocks are mined, one of the forks becomes heavier than the other and is accepted as the main chain by the whole network\cite{blockchainproto}.
+In this case, the other abandoned fork and its blocks are said to be ``orphaned.''
+In practice, accidental forks are infrequent and short: no more than one or two blocks get orphaned.
+To deal with accidental but also with malicious forks, most Bitcoin nodes only consider a block and its transactions \emph{confirmed} if 6 or more blocks have been mined after it.
+
+\subsubsection{Transactions}
+\label{sec:background:bitcoin:transactions}
+Bitcoin transactions facilitate the transfer of coins between users (see \figref{fig:bitcoin}).
+A Bitcoin transaction has an arbitrary number of \emph{transaction inputs}, which authorize the transfer of coins, and \emph{transaction outputs} (TXOs), which specify  who receives those coins and in what amounts.
+Naturally, the number of coins locked in the outputs cannot exceed the number of coins specified in the inputs (with the exception of so-called ``coinbase'' transactions, which mint new coins and have no inputs).
+A transaction output specifies an amount of coins and their new owner, most commonly as a \pk.
+A transaction input refers to or ``spends'' a previously unspent transaction output (UTXO) and contains a proof-of-ownership from that UTXO's owner, which authorizes the transfer of those coins.
+For the purposes of this paper, we only make use of the case where outputs specify owners using \pks and inputs prove ownership using signatures.
+
+Importantly, when assembling transactions into blocks, Bitcoin miners prevent double spends by ensuring that, across all transactions in the blockchain, for every TXO there exists at most one transaction input that refers to or spends that TXO.
+This invariant is known as the \emph{TXO invariant} and \Sys leverages it to prevent forks.
+Finally, a transaction's fee is the difference between the coins spent in its inputs and the coins transferred by its outputs.
+The fee is awarded to the miner who mines a block containing that transaction.
+In theory, the fee can be zero, but in practice recent contention for space in the blockchain requires users to pay transaction fees.
+
+\subsubsection{Storing Data in Transactions}
+\label{sec:background:bitcoin:opret}
+Bitcoin allows users to store up to 80 bytes of data in transactions through provably-unspendable \opret transaction outputs.
+Importantly, any coins specified in the output are forever unspendable or ``burned''.
+For simplicity, \Sys uses \opret outputs to store application-specific statements in the Bitcoin blockchain (see \secref{sec:catena:design}).
+However, there are other ways to store data in Bitcoin transactions: in the value of transferred coins\cite{bitcoin-storing-data}, in transaction inputs \cite{bitcoin-p2sh-data}, in transaction sequence numbers\cite{bitcoin-storing-data}, or in an output's \pk (either via vanity \pks\cite{bitcoin-storing-data}, fake \pks\cite{keybase-scheme}, multisig \pks\cite{multisig} or ``pay-to-contract'' \pks\cite{bitcoin-pay-to-contract}).
+
+\subsubsection{Thin Nodes vs. Full Nodes}
+\label{sec:background:bitcoin:thin}
+Bitcoin's P2P network is made up of \emph{full nodes}, which download the entire blockchain and validate all the transactions (see \secref{sec:background:bitcoin:p2p}) and \emph{thin nodes}, which only download small 80 byte block headers and cannot fully validate transactions.
+Since full nodes are more expensive to run (higher bandwidth, computation and space), smaller devices such as smartphones can run thin nodes instead, also known as \emph{Simplified Payment Verification} (SPV) nodes.
+
+Thin nodes verify Bitcoin transactions more efficiently under a slightly stronger assumption about the Bitcoin network.
+A thin node considers a transaction valid if it sees a correct Merkle proof of membership for that transaction in a block.
+Furthermore, the more blocks are mined after a transaction's block (also known as \emph{confirmations}), the more confident a thin node can be that the transaction is indeed valid.
+Importantly, thin nodes don't even verify signatures on transactions: the membership proof coupled with enough confirmations offers enough assurance that the transaction was verified by miners and is thus valid.
+As a result, thin nodes assume Bitcoin miners follow their incentives and create correct blocks or otherwise thin nodes could accept invalid transactions.
+This assumption can be reasonable since miners would lose their block reward if they create invalid blocks (see \secref{sec:background:bitcoin:consensus}).
+
+Finally, the only way for thin nodes to avoid downloading unnecessary data is to use a Bitcoin feature called Bloom filtering\cite{bitcoin-bloom}.
+This feature allows thin nodes to only receive transactions of interest by asking remote peers to filter out irrelevant transactions using a Bloom filter\cite{bloom}.
+Bloom filtering is cheap for the requesting thin client but quite expensive for the servicing full node, which has to load all requested blocks from disk, pass them through the filter and send filtered blocks to the thin client.

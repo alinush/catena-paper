@@ -1,0 +1,40 @@
+\section{Discussion and Future Work}
+\label{sec:discussion}
+
+\setcounter{subsubsection}{0}
+\subsubsection{Building \Sys on Top of Bitcoin}
+We chose to design \Sys on top of Bitcoin because of Bitcoin's resilient proof-of-work consensus\cite{blockchainproto} and its real-world deployment.
+This makes \Sys-enabled applications easy to deploy (no need to wait for trustworthy parties to come into existence) and expensive to attack (adversaries have to double spend in Bitcoin).
+Still, it's important to note that Bitcoin's security as a ``black box'' consensus protocol remains an open problem.
+For example, it can be difficult to dismiss externally-motivated adversaries who are well-incentivized to maliciously mine and double spend.
+Finally, we note that \Sys could also be built on top of other blockchains such as Ethereum\cite{ethereum}, but we believe Bitcoin's security currently outmatches the security of all other blockchains.
+
+% Regarding SPV, Peercoin doesn't seem to support it: https://talk.peercoin.net/t/does-peercoin-support-simplified-payment-verification/3697
+% ...and neither Blackcoin nor NXT seem to mention anything about SPV.
+In particular, we avoided Ethereum for a few reasons.
+First, we believe Bitcoin is a more mature ecosystem to base applications on, given the many blockchain-based apps built on top of it\cite{blockstack,keybase,openassets,colu,coinspark}.
+Second, Ethereum plans on transitioning to a proof-of-stake consensus algorithm\cite{proof-of-stake} called Casper\cite{ethereum-casper} that could change the trust assumptions behind thin nodes.
+For instance, an additional assumption in Casper is that clients who are offline for too long can authenticate a list of ``bonded'' validators out-of-band\cite{ethereum-casper}.
+Third, recent work shows that rational Ethereum miners have an incentive to skip verifying ``expensive'' blocks that other miners constructed maliciously\cite{consensuscomputer}.
+In Bitcoin, such attacks are less practical since block verification does not involve executing arbitrarily complex smart contracts.
+
+\subsubsection{Censorship}
+\Sys's liveness depends on the censorship-resistance of the Bitcoin network.
+Malicious miners can censor \Sys transactions and exclude them from the Bitcoin blockchain, which reduces the liveness of a \Sys log.
+We stress, however, that Bitcoin's decentralized consensus does provide some degree of censorship-resistance by allowing \emph{any} honest miner to join the protocol, eventually resulting in an honest, non-censoring, majority.
+We also stress that censorship attacks have not been observed in practice and we leave a more careful analysis of Bitcoin's censorship-resistance to future work.
+
+\subsubsection{Historical Consistency}
+\label{sec:discussion:agnostic}
+\Sys is application-agnostic and does not guarantee application-specific \emph{internal consistency}\cite{ht} of statements, which needs to be checked at the application layer.
+Instead, \Sys only guarantees \emph{historical consistency}\cite{ht} of statements, enabling applications to later check the correct semantics of statements.
+As an example, \Sys ensures that all clients of a key transparency scheme such as Certificate Transparency (CT)\cite{ct} see the same history of signed tree heads (STHs).
+However, clients still have to check the internal consistency of the STHs to detect impersonation.
+For instance, Bob's client will want to make sure that across all STHs, his \pk has not been changed maliciously, and thus he hasn't been impersonated.
+
+It is important to understand that without historical consistency, any guarantees of internal consistency are meaningless.
+This is exactly why we designed \Sys. 
+For instance, a malicious CT log server\cite{ct} can equivocate, giving Alice a signed tree head (STH) with her real \pk and a fake \pk for Bob, while giving Bob a different STH with his real \pk and a fake \pk for Alice.
+Alice and Bob both verify their own STHs as being internally consistent and believe they were not impersonated.
+However, because Alice and Bob have no historical consistency, they are looking at different STHs, which means the internal consistency guarantees they have are essentially useless.
+In this case, Alice and Bob are being impersonated even though internal consistency tells them they are not.

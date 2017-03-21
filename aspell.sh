@@ -1,0 +1,14 @@
+aspell -c abstract.tex
+aspell -c chap1*.tex
+aspell -c chap2-bkg-motiv*.tex
+aspell -c chap2-bkg-bit*.tex
+aspell -c chap3*.tex
+aspell -c chap4*.tex
+aspell -c chap5*.tex
+aspell -c chap6*.tex
+aspell -c chap7*.tex
+aspell -c chap8*.tex
+aspell -c chap9*.tex
+aspell -c acks.tex
+aspell -c title.tex
+aspell -c defs.tex

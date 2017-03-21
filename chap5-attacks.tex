@@ -1,0 +1,108 @@
+\section{Attacks}
+\label{sec:attacks}
+In this section we describe attacks on Bitcoin that can translate into attacks on \Sys and explain what \Sys clients can do to protect themselves.
+We also describe attacks launched by a compromised log server or a compromised header relay network.
+
+
+\subsection{Log Server Attacks}
+An attacker might compromise the \Sys log server and steal its statement key.
+In this case, the attacker can issue his own statements, but he cannot fork the log to equivocate about statements.
+That is, all clients will see all attacker-issued statements and can check their correctness at the application layer (see \secref{sec:discussion:agnostic}).
+The attacker can also steal the server's Bitcoin funds.
+However, we stress that \Sys's main goal is to prevent equivocation in the face of stolen key attacks and orthogonal techniques can be used to secure the Bitcoin wallet of \Sys servers\cite{bitcoin-threshold-ecdsa}.
+
+Once the attacker has the statement key, he can also abruptly ``end'' the log by issuing a transaction that is not in the correct \Sys format.
+To recover from such an attack, the \Sys log server has to abandon that log and start a new one with a new genesis transaction.
+In this sense, \Sys performs no worse than previous systems, which would also have to advertise a new public key to log clients if all log server secrets were compromised.
+A compromised log server could also hide away transactions from \Sys clients.
+As a result, \Sys clients would lose freshness and not be aware of the newest issued statements.
+However, as discussed above, the log server cannot equivocate about statements as that would require double spending a transaction in Bitcoin.
+% Bitcoin covenants (Moser, Eyal, Sirer) can't really solve this problem. 
+% Even if we prevent the attacker from ending the log, the honest log server still loses control over the log and has to start a new one.
+
+
+\subsection{Accidental Forks}
+\label{sec:attacks:accidental-forks}
+Accidental forks in the Bitcoin blockchain pose a threat to \Sys clients as adversaries can double spend \Sys transactions across forks and equivocate.
+In the past, Bitcoin has had three major accidental forks. 
+Two of them, in August 2010 and March 2013, were due to bugs in the \bitcoind daemon\cite{august2010fork, march2013fork} and one of them, in July 2015, was caused by at least one irrational miner\cite{july2015fork}, which we expand on below.
+All of these forks orphaned a significant number of blocks, enough to unconfirm previously confirmed transactions.
+Moreover, during the March 2013 fork\cite{march2013fork}, an honest-but-curious user attempted a double spend attack on a Bitcoin exchange which succeeded. 
+However, the attacker quickly returned the funds to the exchange\cite{doublespend-march2013}.
+
+We stress that accidental forks have been rare and are thus outside of our threat model.
+Furthermore, clients find out about forks via the header relay network and refuse accepting statements until forks are resolved, which gives them an extra line of defense.
+Thus, an adversary who wants to exploit an accidental fork has to compromise the header relay network to hide one of the forks (or compromise the Bitcoin P2P network instead).
+As a last line of defense, \Sys clients can wait for additional confirmations to protect themselves against accidental forks at the cost of additional latency.
+
+\subsubsection{``SPV'' Mining}
+The July 2015 fork was caused by at least one irrational miner who mined for over an hour on top of an unverified chain\cite{july2015fork-hashes}.
+``SPV'' normally stands for Simplified Payment Verification as discussed in \secref{sec:background:bitcoin:thin}, but here it is used to indicate that miners are not verifying the block they are mining on.
+SPV mining is used by some rational miners as a way to lower their rate of orphaned blocks by starting to mine earlier\cite{consensuscomputer}.
+However, when performed without a timeout, this strategy is actually irrational as it can leave miners mining on an invalid fork indefinitely.
+As we explain below, this is what happened in July 2015.
+
+Instead of waiting to hear about a solved block on the P2P network, SPV miners obtain a solved block hash directly from other mining pools via their Stratum mining API\cite{stratum}.
+Then, they mine on top of that hash, assuming its corresponding block is correct and expecting to eventually receive the full block via the P2P network.
+Unfortunately, if the block is invalid, the P2P network will not waste bandwidth broadcasting it.
+Thus, SPV miners will never hear about an invalid block, which is why they need to time out after a while and switch to mining on the correct chain.
+Otherwise, SPV miners could be left mining on top of an invalid chain forever.
+This is exactly what happened in July 2015, when several miners did not implement timeout logic and went on to mine several invalid blocks, losing over \$50,000 in mining rewards\cite{july2015fork}.
+
+% https://twitter.com/roasbeef/status/728785521829273600
+% https://www.reddit.com/r/Bitcoin/comments/4i8qdg/alex_petrov_on_twitter_less_bitcoin_orphans_as/#bottom-comments
+SPV mining remains a concern for the Bitcoin network.
+However, future Bitcoin improvements should further decrease the orphan rate and steer miners away from this unhealthy mining strategy.
+These could be improvements in block propagation delay and block verification speed as well as new fast block relay networks, such as Falcon\cite{falcon} and FIBRE\cite{fibre}.
+
+
+\subsection{Adversarial Mining Attacks}
+\label{sec:attacks:adversarial-mining}
+% From \cite{bitcoin-security-revisited}: Tried to reproduce data for Table 3: \sigma_{spv} policy that is $\epsilon$-fractional robust, but couldn't. Tried Mathematica and Maxima but neither worked... Mathematica gave weird numbers, and Maxima does not converge.
+A sufficiently powerful adversary can mine his own side chain and fork the Bitcoin blockchain, enabling him to double spend transactions across the two forks.
+Unfortunately, thin clients are more vulnerable than full nodes to a generalized ``Vector76'' attack where the attacker mines a 6-block long side chain that is at least one block longer than the main chain\cite{bitcoin-security-revisited}.
+The side chain's first block contains a transaction $tx$ with $k$ confirmations which the attacker will later replace with another transaction $tx'$ double-spending the same output(s) as $tx$.
+When the attacker successfully mines the side chain, he shows the side chain only to the victim, who will accept $tx$.
+Then, the attacker ceases to mine, issues $tx'$ to the main chain and lets the main chain win the race, confirming $tx'$ and unconfirming $tx$.
+
+Full nodes are more resilient to this attack because they can relay the attacker's side chain to the rest of the network, while thin clients cannot.
+Thus, with full nodes, the attacker's side chain could be adopted by the network, which would prevent the double spend.
+However, we stress that with proper timing, the attacker can also trick full nodes if he is able to propagate his side chain to the victim at the same time as the same-length main chain is propagating to the rest of the network\cite{bitcoin-security-revisited}.
+
+Similar to previous work\cite{virtualchain, blockstack, keybase, bitcoin-smc, bitcoin-anon-cred, versum, bitcoin-incent-comp, bitcoin-pred-mkt,commitcoin}, we exclude adversaries who can mine a 6-block long side chain from our threat model because they are extremely powerful and so far they have not been observed in practice.
+These adversaries can break not only thin nodes but also full nodes with proper attack timing.
+The main countermeasure against these attacks is to simply wait for more confirmations, which makes the attacker's job more difficult.
+Another countermeasure is for \Sys clients to accept a block header only after hearing about it from multiple sources, so as to ensure the attacker's side chain is seen by the whole Bitcoin P2P network.
+
+
+\subsection{Bitcoin P2P Network Attacks}
+An attacker can ``eclipse'' nodes on the P2P network and withhold newly mined blocks from them via Sybil attacks\cite{sybil} and so-called eclipse attacks\cite{eclipse}.
+For example, an attacker who eclipses a \Sys client can increase their chances of succeeding at an adversarial mining attack.
+Even worse, an attacker who eclipses Bitcoin miners can double spend \emph{without adversarially mining} by simply preventing miners from seeing each other's blocks.
+Fortunately, eclipse attacks on miners have not been observed yet in the wild and it is not clear that they could remain undetected for long.
+First, countermeasures against eclipse attacks have been already implemented in Bitcoin's P2P network code.
+Second, mining pool operators would quickly notice the fork by an increase in their fraction of mined blocks.
+Third, eclipse attacks could be detected faster in the future if miners also broadcast ``status reports:'' block headers that are below the difficulty target but are sufficiently difficult to give information about how much mining power is behind a fork\cite{canary}.
+Finally, block relay networks such as the Bitcoin Fast Relay Network (FRN)\cite{bitcoin-relay-network}, Falcon\cite{falcon} or FIBRE\cite{fibre} are being deployed or are already deployed between Bitcoin miners, making eclipsing miners much harder.
+% More about ``weak-blocks'' or ``status reports'' here: https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2015-September/011158.html
+
+A more powerful attacker could simply Sybil-attack Bitcoin's P2P network, which would constitute a break of Bitcoin itself and, if practical, would be a concern for both Bitcoin and \Sys.
+We plan on investigating to what extent a Sybil attack can partition the Bitcoin P2P network in future work.
+
+
+\subsection{Header Relay Network Attacks}
+\label{sec:attacks:hrn}
+A sufficiently powerful attacker who can adversarially mine and who controls the header relay network (HRN) could equivocate to a \Sys client.
+First, the attacker controlling the HRN eclipses the client from the Bitcoin network, hiding all newly-mined blocks from the client.
+Second, the attacker adversarially mines a sufficiently long side chain that confirms some fake statement $s_i$.
+Depending on the attacker's mining power, this could take days or weeks, which means the victim would become suspicious, as they are not seeing any mining activity.
+When done, the attacker shows this side chain to the victim who will accept $s_i$.
+Finally, the attacker stops eclipsing the victim and shows them the main chain that confirms an inconsistent statement $s_i'$ and unconfirms $s_i$.
+Importantly, even without an HRN in our design, this attack would be possible via an adversarial Bitcoin P2P network\cite{eclipse}.
+
+Fortunately, this attack can be easily detected by \Sys clients if they use their local time to compute the rate at which blocks are mined and compare it to the normal Bitcoin rate while accounting for variance in the time between blocks.
+However, such heuristics for detecting attacks are beyond the scope of our work, so we defer them to future work.
+Finally, note that a more powerful attacker could leverage control of the HRN network to make generalized ``Vector76'' attacks more likely to succeed (see \secref{sec:attacks:adversarial-mining}).
+Specifically, as he gets closer to successfully mining the 6-block long side chain, the attacker could eclipse the victim, which effectively buys him some extra time to win the race against the Bitcoin network.
+As before, such a powerful attacker could also pull off this attack using Bitcoin's P2P network should our design not require an HRN.
+The same countermeasures as discussed above and in \secref{sec:attacks:adversarial-mining} could be used to prevent this attack.

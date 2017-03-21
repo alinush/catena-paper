@@ -1,0 +1,34 @@
+%\usepackage{ifpdf}
+\usepackage{epsfig,endnotes}
+\usepackage{cite}
+\usepackage{url}
+\def\UrlBreaks{\do\/\do-} % break URLs up at backslash characters and at dash characters (otherwise some URL in references go beyond the column width)
+%\usepackage[bookmarks=false,draft]{hyperref} % Use [draft] to fix "\pdfendlink ended up in different nesting level than \pdfstartlink" error (or to remove links for camera-ready)
+\usepackage{hyperref} % not for camera ready
+\usepackage{graphicx}
+\usepackage{hyphenat} % For \hyp{} command used to hyphenate words with a dash in them: use like this: non\hyp{}membership.
+%\usepackage[english]{babel}
+%\usepackage[citestyle=numeric-comp]{biblatex}
+\usepackage[usenames,dvipsnames,svgnames,table]{xcolor} % \textcolor for coloring text
+\usepackage{amsmath,amsfonts,amscd}
+%\usepackage{mathabx} % \divides, \notdivides (USENIX template already has it)
+\usepackage{algorithm} % for describing algorithms nicely
+\usepackage[noend]{algpseudocode}
+%\usepackage{array}
+%\usepackage{fixltx2e}
+%\usepackage{stfloats}
+%\usepackage{dblfloatfix}
+\usepackage{xspace}
+\usepackage{booktabs} % for table spacing, \midrule
+\usepackage{graphicx}
+\usepackage{adjustbox} % for centering huge tables using \begin{adjustbox}{center}
+%\usepackage{caption} % for captioning \tabular-only (no \table) tables using \captionof{table}{Your caption here}
+\usepackage{amssymb}  % \checkmark
+\usepackage{pifont}   % Need for defining \xmark (opposite of a checkmark)
+\usepackage{marvosym} % Needed for cross \Cross symbol
+\usepackage{rotating} % need to \rotate table headers
+\usepackage{wasysym}  % \CIRCLE, \LEFTcircle and \RIGHTcircle
+\usepackage{float}    % for the H placement option on \begin{table}[H]
+%\usepackage[normalem]{ulem} % for striking out text using \sout
+%\usepackage{framed}  % for boxing prize winning stuff with \begin{framed}
+%\usepackage{refcheck} % (WARNING: Messes with the PDF output) lets you know if you forget to cite things from your .bib file, but you must add \nocite{*} before your bibliography

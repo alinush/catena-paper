@@ -1,0 +1,85 @@
+\section{Background and Motivation}
+\label{sec:background}
+In this section, we discuss our motivation for designing \Sys and give the necessary background on Bitcoin needed to understand \Sys's design.
+
+\subsection{Motivation}
+\label{sec:background:motivation}
+Our main motivation for designing \Sys is to provide proactive security to many applications that depend on it.
+At the same time, we want to improve previous blockchain-based transparency schemes\cite{keybase,virtualchain} whose shortcomings we describe in \secref{sec:background:motivation:blockchain-transparency}.
+Finally, we want a non-equivocation scheme that does not require many trustworthy parties to come into existence and that can be deployed today.
+
+\subsubsection{Key Transparency}
+\label{sec:background:motivation:key-transparency}
+% NOTE: Under their threat models (e.g., gossip works), they also prevent equivocation.
+% .ECT: Section 2.2, page 3
+% .DTKI: Section 6, page 12
+% .CONIKS: Section 2.1, "Auditors", page 4
+% .AKI: 
+%   Section 4, page 3, Figure 1: browsers check roots against validators.
+%   Section 2.2, page 2: non-collusion between CAs, log servers and validators. EFF is a validator.
+% .ARPKI:
+%   Section 4, page 4: Non-equivocation? (security) still holds even when n - 1 entities are compromised. Validators are optional (CAs are validators).
+\Sys can prevent equivocation attacks in current key transparency work\cite{ct,ect,dtki,arpki,aki,coniks} and, as a result, thwart man-in-the-middle (MITM) attacks.
+Key transparency schemes bundle public key bindings together into a directory implemented using authenticated data structures\cite{ad}.
+Users are presented with digests of the directory as it evolves over time and can verify someone's \pk against a digest of the directory, preventing equivocation with respect to that digest.
+The remaining problem for key transparency schemes is to prevent equivocation about the digests themselves.
+For this, current schemes rely on federated trust\cite{coniks}, any-trust assumptions\cite{arpki}, non-collusion between actors\cite{arpki, aki} or on users gossiping between themselves\cite{ctgossip,ect,coniks,dtki} or with trusted validators\cite{aki}.
+
+With \Sys, we propose using the Bitcoin blockchain as a hard-to-coerce, trustworthy witness that can vouch for directory digests.
+For example, in Certificate Transparency (CT), a log server would directly witness \emph{signed tree heads} (STHs) in Bitcoin via a \Sys log.
+Users can efficiently look up new STHs in the \Sys log and be certain that the log server has not equivocated about them.
+We believe this approach could be more resilient to attacks, as a compromised log server cannot equivocate without forking the Bitcoin blockchain.
+Also, because most transparency schemes publish digests of the directory periodically, we believe they are amenable to being secured by \Sys.
+
+\subsubsection{Blockchain-based Transparency}
+\label{sec:background:motivation:blockchain-transparency}
+Blockchain-based transparency schemes\cite{keybase,blockstack} are promising due to their simplicity and resilience to forks, but the overhead of downloading all blockchain data makes them unusable on many devices.
+\Sys can decrease the overhead of these schemes from currently \blockchainsize\cite{bitcoin-size} to around \headerssize.
+For example, \Sys can enable thin clients running on mobile phones to efficiently audit the Bitcoin-witnessed Keybase \pkd\cite{keybase}.
+Currently, Keybase publishes digests of their \pkd in Bitcoin by creating transactions signed by a predetermined \pk\cite{keybase-scheme}.
+Keybase clients recognize these transactions and read directory digests from them (see \secref{sec:related-work} for details).
+The problem with this approach is that thin clients cannot securely use Bloom filtering (see \secref{sec:background:bitcoin:thin}) to avoid downloading irrelevant transactions, as an adversary could selectively hide Keybase transactions and equivocate about the directory (we explain this attack in \secref{sec:catena:design:auditing}).
+\Sys prevents this attack and also has the advantage of not polluting Bitcoin's unspent transaction output (UTXO) set\cite{keybase-opret}.
+
+\Sys can also be used to improve Blockstack's thin client security \cite{blockstack}.
+Currently, to benefit from Bitcoin's resilience against forks, Blockstack clients need to download the entire blockchain and compute their own \emph{consensus hash} over all Blockstack-related operations (see \secref{sec:related-work} for details).
+Blockstack clients could also choose to trust someone else's consensus hash and verify \pk lookups against it efficiently using Simplified Name Verification (SNV)\cite{blockstack}.
+However, clients still have to download full Bitcoin blocks to update that consensus hash or continue trusting someone else to update it.
+As with Keybase, Bloom filtering cannot be used securely to filter Blockstack transactions.
+To fix this problem, we propose using a \Sys log to keep track of Blockstack operations rather than scattering them through the blockchain.
+In this way, thin clients can efficiently download just the Blockstack operations and quickly compute their own consensus hashes.
+
+One disadvantage of this approach, according to one of the Blockstack co-founders\cite{blockstack-shea-jun-2016}, is that it requires a secret key to manage the \Sys log and would thus ``centralize'' the system.
+To address this, an alternative design would be to introduce \emph{auditors} who verify and publish Blockstack consensus hashes in a jointly-signed \Sys log.
+While this approach centralizes trust for thin clients, such as mobile phones, it does so in a more accountable and transparent manner.
+Specifically, the auditors can't equivocate about consensus hashes but can still publish \emph{internally inconsistent}\cite{ht} consensus hashes (see \secref{sec:discussion:agnostic}).
+However, such misbehavior would be evident in the Bitcoin blockchain when audited by a full Blockstack client.
+
+\subsubsection{Software Transparency}
+\Sys can prevent equivocation in \emph{software transparency} schemes\cite{software-transparency} and thus thwart man-in-the-middle attacks that try to inject malicious software binaries on victims' machines\cite{software-transparency}.
+In fact, Bitcoin developers were concerned in the past about these kinds of attacks on Bitcoin binaries\cite{bitcoin-binary-transparency}.
+To prevent these attacks, software vendors can publish digests of new versions of their software in a \Sys log.
+Customers can then verify any version downloaded from a vendor's website against the vendor's log.
+Previous work\cite{cosi} already highlights the necessity of software transparency in the face of insecure software update schemes\cite{secure-software-updates,attacks-on-package-managers}, key loss or compromise \cite{microsoft-golden-key} and black markets for code-signing certificates\cite{blackmarket-certs}.
+
+\subsubsection{Tor Directory Servers}
+\Sys can be used to prevent Tor directory servers\cite{tor} from equivocating about the directory of Tor relays.
+Equivocation attacks are particularly concerning for Tor because they enable an attacker to easily deanonymize users by pointing them towards attacker-controlled Tor relays.
+In fact, Tor Transparency\cite{tortransparency} plans to address these attacks by publicly logging the Tor directory consensus.
+In the same spirit, we propose using \Sys to increase the resilience of Tor Transparency.
+With \Sys, directory servers can publish the consensus in a \Sys log by jointly signing it using a Bitcoin multisignature\cite{multisig}.
+Since Tor does not try to conceal who is connected to the network\cite{tor}, we are not concerned about \Sys's header relay network learning who is using Tor.
+% If Tor users want to hide that they use Tor, they can rely on Tor bridges.
+Finally, because Tor consensus is updated every hour, we believe it should be suitable for embedding in a \Sys log.
+
+\subsubsection{Consensus Amongst $n$ Servers}
+\Sys can be used by a set of $n$ servers to reach consensus on a log of operations, where each server manages its own secret key and does not necessarily trust the other $n-1$ servers.
+In this scheme, each server submits an operation to the log by creating a \Sys transaction that is spendable by all $n$ servers (see \secref{sec:model:actors:log-server}).
+To disincentivize the other servers from stealing the coins, the log is funded with small amounts of bitcoins and is frequently ``re-funded'' (see \secref{sec:catena:design:refund}).
+This scheme allows all servers to reach consensus on the log and relies on Bitcoin miners to decide which server's operation gets included in the log.
+To prevent adversarial servers from monopolizing the log with their operations by paying higher transaction fees, the servers can agree on an upper bound on fees.
+
+%\subsubsection{Integrity-sensitive Systems}
+%Verena, SUNDR\cite{sundrosdi}, SPORC. SPORC/SUNDR assume clients know each other's public keys (e.g., PKI) => clients can gossip securely and detect equivocation.
+
+\input{chap2-bkg-bitcoin}

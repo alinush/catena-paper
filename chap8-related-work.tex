@@ -1,0 +1,138 @@
+\section{Related Work}
+\label{sec:related-work}
+
+% Tamper-evident logging
+% ----------------------
+Tamper-evident logging\cite{ht} allows auditors to ensure a log's correct behavior.
+A \emph{history tree} is used to store events in the log, check their membership and prove that a new version of the log is consistent with a past version (i.e., no past events have been removed or modified).
+Unfortunately, tamper-evident logging does not address equivocation attacks, assuming auditors can gossip to detect forks.
+\Sys offers the same semantics as tamper-evident logging (\ie membership proofs, consistency proofs) but also prevents equivocation.
+However, because the Bitcoin blockchain is implemented as a hash-chain, \Sys's membership and consistency proofs are linear, not logarithmic, in the log's size.
+In practice, a \Sys log can commit root hashes of a history tree and prevent equivocation about the tree, while preserving logarithmic membership with respect to a root hash and logarithmic consistency proofs between two consecutive root hashes.
+
+% Proofs of proofs of work
+% ------------------------
+Proofs of proofs of work (PPOW) \cite{ppow} enable thin clients to verify the ``weight'' of a blockchain (see \secref{sec:background:bitcoin:consensus}) by downloading only $O(\log{n})$ rather than all $n$ block headers.
+Should Bitcoin adopt this interesting technique, \Sys clients could leverage it to download fewer block headers from the HRN.
+First, we can leverage PPOWs to decrease the bootstrapping bandwidth of \Sys clients from $O(n)$ to $O(\log{n})$ when initially syncing with a blockchain of $n$ blocks.
+Second, we can leverage PPOWs to skip downloading some of the block headers between two statements $s_i$ and $s_{i+1}$, should there be a large number of blocks between consecutive statements.
+However, we cannot leverage PPOWs to skip downloading \Sys transactions and their corresponding block headers.
+This is because \Sys clients need to verify that all \Sys transactions are chained correctly (see \secref{sec:catena:design:auditing}).
+
+% uniquebits and CommitCoin
+% -------------------------
+Peter Todd's uniquebits\cite{uniquebits} allows users to publish signed hashes of arbitrary data in the Bitcoin blockchain for later auditing.
+At a high level, the scheme commits the signed data $d$ and PGP fingerprint information about the signer by leveraging both ``Pay-to-Script Hash'' (P2SH) transactions\cite{bitcoin-p2sh-data} and ``fake'' \pks (see \secref{sec:background:bitcoin:opret}).
+Unfortunately, uniquebits does not address the equivocation problem: the scheme cannot efficiently prevent a signer from publishing two pieces of data $d$ and $d'$ and equivocating to thin clients about which piece was signed.
+Similarly, CommitCoin\cite{commitcoin} uses the Bitcoin blockchain to ``timestamp'' commitments and prove they were made at a certain time, but cannot efficiently prevent equivocation.
+
+% Single-use seals
+% ----------------
+% Genesis TXN:
+% https://blockchain.info/tx/b8b86d41647db9eb4fcb833cc685eb1264d7c3d2b8fb056551b3388e8c35a43b?show_adv=true
+% Spends genesis, commits ID of next TXN (i.e., 5b6705437ced5cca8ec52cfb187e5d3270e067817c4fcd5a26755d4ceb4c010c)
+% https://blockchain.info/tx/976e842f944b797352a111893d766ce1b3b211d987d31e764a424ee19de10fe5?show_adv=true
+% Spends some random, unrelated transaction
+% https://blockchain.info/tx/5b6705437ced5cca8ec52cfb187e5d3270e067817c4fcd5a26755d4ceb4c010c?show_adv=true
+% Spends transaction above, , commits ID of next TXN
+% https://blockchain.info/tx/19c2aa81cf6a0bf7d1f20810ca72baac44cb2532d765e162b0d58b4e050ff3af?show_adv=true
+Concomitant with the publication of our online version of \Sys\cite{catena-eprint}, Peter Todd independently proposed a Bitcoin-based log that prevents equivocation using \emph{single-use seals}\cite{single-use-seals}.
+Single-use seals generalize the concept of spending a transaction output in Bitcoin while committing some arbitrary data in the process.
+The transaction output waiting to be spent is the \emph{identifier} of the single-use seal, while the transaction that spends that output and commits some arbitrary data (see \secref{sec:background:bitcoin:opret}) is known as the \emph{closing transaction}.
+Importantly, when a seal is ``closed'' by spending its output via a closing transaction, another seal can be specified as the arbitrary data in that transaction.
+This is similar to how, in \Sys, a new transaction spends the previous transaction's continuation output (equivalent to ``closing a seal'') and creates a new continuation output (equivalent to specifying a new seal).
+
+As opposed to \Sys, single-use seals provide a certain degree of censorship-resistance because the identifier of the next seal can be hidden from miners by committing to it in the closing transaction.
+In contrast, with \Sys, the next continuation output (see \secref{sec:catena:design:transactions}) is always public and known by miners, so they can censor transactions that try to spend it.
+However, \Sys is more efficient than single-use seals, since each statement requires a single transaction to be posted on the blockchain, while single-use seals require two transactions (one transaction for the seal's identifier plus another closing transaction).
+Furthermore, although thin client verification of a log would be possible with single-use seals, the details of this are never considered in depth\cite{single-use-seals}, a contribution that \Sys makes.
+Finally, to the best of our knowledge, single-use seals have not been implemented yet, making \Sys the first implementation of an efficient Bitcoin-based log.
+
+% Keybase
+% -------
+Keybase\cite{keybase} and Blockstack\cite{blockstack,virtualchain} use the Bitcoin blockchain to prevent equivocation but do so inefficiently, requiring clients to run a full Bitcoin node.
+Keybase periodically publishes the Merkle root of its \pkd by committing it in transactions signed under a fixed \pk known by Keybase clients\cite{keybase-txs}.
+Specifically, Keybase stores the Merkle root in the transaction's output as a ``fake'' \pk (see \secref{sec:background:bitcoin:opret}).
+Unfortunately, this approach does not allow clients to efficiently and correctly obtain all Keybase-issued transactions using Bloom filtering (see \secref{sec:background:bitcoin:thin}).
+This is because Bitcoin P2P nodes can selectively hide transactions from clients and show different transactions to different users, thus equivocating about the Keybase directory (see \secref{sec:catena:design:auditing}).
+In \Sys, a new transaction always spends the previous one, creating a unique chain due to the difficulty of double spending.
+As a result, all \Sys clients see the same history of transactions, implicitly agreeing on the history of statements.
+
+% Blockstack
+% ----------
+In Blockstack\cite{blockstack}, users submit their own operations (e.g., ``register \pk'' or ``update \pk'') to the Bitcoin blockchain by creating transactions that include these operations in an \opret output.
+Blockstack nodes download the full Bitcoin blockchain and filter these Blockstack-specific transactions (recognized via a magic byte in the \opret data), accumulating the Blockstack operations into a \emph{consensus hash}\cite{blockstack}.
+Importantly, thin clients can query Blockstack nodes for \pks (\eg ``look up Alice's \pk'') and authenticate their responses against a consensus hash.
+Unfortunately, because thin clients cannot download the entire blockchain, they would have to obtain consensus hashes from a trusted entity which, if compromised, could equivocate about these hashes.
+In this sense, \Sys could make equivocation about consensus hashes as hard as forking Bitcoin, thereby increasing Blockstack's thin client security (discussed in \secref{sec:background:motivation:blockchain-transparency}).
+
+% Colored coins
+% -------------
+Coin coloring schemes \cite{colu,openassets,coinspark} leverage the Bitcoin blockchain to enable the secure issuance and transfer of assets different than bitcoins, such as smart property, stocks or bonds\cite{coloredcoinsoverview}.
+The key idea is that a set of coins locked in an output can be assigned a static color which can be correctly maintained as those coins change hands.
+To prevent double spending of colored coins, coloring schemes also leverage Bitcoin's security against double spends along with some additional verification by ``color-aware'' wallets.
+The overhead of these schemes is similar to \Sys's, since ``color-aware'' (thin) wallets only need to keep track of transactions that affect an asset (e.g., reassigned ownership).
+
+Coin coloring schemes and \Sys both rely on the difficulty of double spending but do so to solve slightly different problems.
+Specifically, while coin coloring schemes prevent equivocation about the never-changing color of a coin, \Sys prevents equivocation about an ever-growing log of statements.
+While some coloring schemes support committing arbitrary data in their transactions\cite{coloredcoins-metadata} and could be adapted to prevent equivocation, to the best of our knowledge, this has not yet been done.
+Thus, we believe \Sys to be the first system that solves the equivocation problem efficiently using Bitcoin.
+
+% Coins on fire!
+% --------------------------
+Non-equivocation contracts\cite{liarliar} disincentivize equivocation by penalizing it with monetary loss.
+Specifically, if an authority equivocates, its Bitcoin secret key, which locks some funds, is implicitly revealed via a mechanism similar to double-authentication-preventing signatures (DAPS)\cite{daps}.
+As a result, anybody who detects equivocation can spend those funds.
+The advantage of non-equivocation contracts is that statements are not included in the Bitcoin blockchain so they can be issued faster than in \Sys.
+This enables interesting applications, such as asynchronous payment channels\cite{liarliar}, which are not possible with \Sys.
+However, as opposed to \Sys, non-equivocation contracts only disincentivize equivocation and do not necessarily prevent it.
+For example, an outsider who steals the authority's secret key and wants to harm the authority is actually incentivized to equivocate and can easily do so.
+With \Sys, even with a stolen secret key, an outsider cannot equivocate without forking the Bitcoin blockchain.
+
+% CoSi
+% ----
+CoSi\cite{cosi} prevents equivocation by requiring a threshold number of ``witnesses'' to also verify and sign an authority's statements.
+Depending on the application, these witnesses could also check the internal consistency of statements (see \secref{sec:discussion:agnostic}). 
+In contrast, \Sys prevents equivocation by assuming its authority, Bitcoin, is trustworthy, without relying too much on the header relay network (HRN) to keep it honest (see \secref{sec:attacks:hrn}).
+Both CoSi and \Sys make assumptions about connectivity of participants.
+CoSi requires a relatively well-connected set of witnesses for its tree broadcast scheme while \Sys requires the Bitcoin P2P network not to be easily partitioned.
+One drawback of CoSi is that it requires an admission control process for witnesses to prevent Sybil attacks\cite{sybil}.
+As a result, finding witnesses who are reputable, trustworthy entities could be hard.
+In contrast, \Sys could be easier to deploy since it only relies on the Bitcoin blockchain as a single trustworthy witness and on a header relay network that can be bootstrapped using existing blockchain explorers (see \secref{sec:catena:design:header-relay}).
+
+Like CoSi, \Sys can offer both ``proactive'' and ``retroactive'' security \cite{cosi}.
+In particular, \Sys can be used retroactively by clients to validate previously accepted statements, or it can be used proactively before accepting a statement as valid.
+Unlike CoSi, \Sys suffers a higher delay when used proactively because clients have to wait for sufficient confirmations before accepting a statement.
+This is a cost \Sys pays for using a decentralized consensus network as its only witness.
+However, we stress that not all applications care about this cost.
+In particular, \Sys is suitable for key transparency schemes, Tor directory servers and software transparency schemes, which all perform batching and update their state infrequently.
+
+% Key transparency
+% ----------------
+Key transparency schemes can detect equivocation using gossip amongst users\cite{ctgossip,ect,coniks,dtki}, gossip between users and trusted validators\cite{aki}, federated trust\cite{coniks}, any-trust assumptions\cite{arpki} or non-collusion between actors\cite{arpki, aki}.
+\Sys instead relies on the resilience of Bitcoin's proof-of-work consensus to prevent, not just detect, equivocation.
+Our approach can provide proactive security\cite{cosi} at the cost of publishing new statements every 10 minutes with an average 60-minute confirmation latency (if clients wait for 6 confirmations).
+Alternatively, \Sys can provide retroactive security with no latency.
+We believe \Sys can strengthen key transparency schemes because it enables anyone to audit efficiently for non-equivocation.
+We also believe \Sys's approach to non-equivocation is simpler and more trustworthy due to the decentralized nature of Bitcoin's consensus protocol.
+
+% EthiKS
+% ------
+% 1 gas is usually 20 gweis
+% 1 gwei is 0.000000001 = 10^-9 ETH
+% 1 gas = 20 gwei = 0.0000 0002 ETH = 2 * 10^-8 ETH
+% 1 ETH = 12 USD
+% 1 gas = 2 * 10^-8 * 12 USD
+%
+% EthIKS costs|
+% ------------*------------*----------------------------
+% Create tree | 367535 gas | 0.01837675 USD = 1.8 cents
+% Insert user | 42042 gas  | 0.0021021 USD = .2 cents
+% Update user | 12042 gas  | 0.0006021 USD = .06 cents
+EthIKS\cite{ethiks} uses the Ethereum blockchain\cite{ethereum} to prevent equivocation in CONIKS\cite{coniks}, a key transparency scheme that enables users to efficiently monitor their own public key bindings.
+EthIKS implements CONIKS as a ``smart contract'' in the Ethereum blockchain and relies on Ethereum miners to enforce CONIKS security invariants.
+Like \Sys, EthIKS also efficiently leverages proof-of-work consensus within a cryptocurrency to prevent equivocation in the log.
+However, different from \Sys, EthIKS guarantees internal consistency (see \secref{sec:discussion:agnostic}) of the CONIKS log, though this comes at the expense of additional Ethereum transaction fees paid by the EthIKS log server\cite{ethiks}.
+In contrast, \Sys clients have to check each log statement for internal consistency themselves, incurring an overhead linear in the number of statements in the log.
+For certain applications where internal consistency checks are not expensive (e.g., monitoring your own binding in a \pkd) and minimizing server costs is a priority, \Sys could be better suited.
+However, when server costs are not a concern (e.g., costs can be shifted to users), Ethereum-based approaches like EthIKS could be better suited.

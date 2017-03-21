@@ -1,0 +1,13 @@
+%\subsection*{Abstract}
+
+\begin{abstract}
+We present \emph{\Sys}, an efficiently-verifiable Bitcoin witnessing scheme.
+\Sys enables any number of thin clients, such as mobile phones, to efficiently agree on a log of application-specific statements managed by an adversarial server.
+\Sys implements a log as an \opret transaction chain and prevents forks in the log by leveraging Bitcoin's security against double spends.
+Specifically, if a log server wants to equivocate it has to double spend a Bitcoin transaction output.
+Thus, \Sys logs are as hard to fork as the Bitcoin blockchain: an adversary without a large fraction of the network's computational power cannot fork Bitcoin and thus cannot fork a \Sys log either.
+However, different from previous Bitcoin-based work, \Sys decreases the bandwidth requirements of log auditors from \blockchainsize to only tens of megabytes.
+More precisely, our clients only need to download all Bitcoin block headers (currently less than \headerssize) and a small, 600-byte proof for each statement in a block.
+We implement \Sys in Java using the \emph{bitcoinj} library and use it to extend CONIKS, a recent key transparency scheme, to witness its \pkd in the Bitcoin blockchain where it can be efficiently verified by auditors.
+We show that \Sys can secure many systems today, such as \pkds, Tor directory servers and software transparency schemes.
+\end{abstract}
