@@ -10,3 +10,21 @@ For more details, see our abstract [here](abstract.tex) or:
 Then, open the paper with your favorite PDF viewer:
 
     xdg-open catena-paper.pdf
+
+Need to cite?
+-------------
+
+Use this BibTeX:
+
+    @INPROCEEDINGS{catena-bitcoin, 
+    author={A. Tomescu and S. Devadas}, 
+    booktitle={2017 IEEE Symposium on Security and Privacy (SP)}, 
+    title={Catena: Efficient Non-equivocation via Bitcoin}, 
+    year={2017}, 
+    volume={}, 
+    number={}, 
+    pages={393-409}, 
+    keywords={Java;file servers;public key cryptography;Bitcoin blockchain;CONIKS;Catena;Java;OP_RETURN transaction chain;adversarial server;bitcoinj library;efficiently-verifiable Bitcoin witnessing scheme;key transparency scheme;nonequivocation;public-key directory;Bandwidth;Bitcoin;Prototypes;Public key;Servers;Software}, 
+    doi={10.1109/SP.2017.19}, 
+    ISSN={}, 
+    month={May},}
