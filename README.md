@@ -19,7 +19,7 @@ Use this BibTeX:
     @INPROCEEDINGS{catena-bitcoin, 
     author={A. Tomescu and S. Devadas}, 
     booktitle={2017 IEEE Symposium on Security and Privacy (SP)}, 
-    title={Catena: Efficient Non-equivocation via Bitcoin}, 
+    title={Catena: Efficient Non-equivocation via {Bitcoin}}, 
     year={2017}, 
     volume={}, 
     number={}, 
